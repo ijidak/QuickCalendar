@@ -2,6 +2,12 @@
 
 Quick Calendar is a small native macOS month-view calendar written in Swift and AppKit. It opens on the current month, highlights today, supports previous/next-month navigation, lets you select a year within two years of the current year, and quits after 30 seconds without mouse or keyboard activity.
 
+## Screenshots
+
+| Month view | Year picker |
+| --- | --- |
+| ![Quick Calendar showing September 2026 in dark mode, with today's date highlighted in a blue circle and arrow buttons on either side of the month heading](screenshots/month-view.png) | ![The same window with the year menu open, listing 2024 through 2028, a checkmark beside the current year and the next year highlighted](screenshots/year-picker.png) |
+
 ## System requirements
 
 - Apple Silicon Mac
@@ -81,6 +87,7 @@ QuickCalendar/
 │   ├── IconMaker.swift  Generates the source calendar icon PNG
 │   └── ICNSMaker.swift  Packages icon PNGs into the macOS ICNS format
 ├── Info.plist           macOS application bundle metadata
+├── screenshots/         README screenshots
 ├── build.sh             Complete reproducible build and packaging script
 ├── LICENSE              MIT license
 └── README.md
