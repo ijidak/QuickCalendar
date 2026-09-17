@@ -6,8 +6,15 @@ build_dir="$script_dir/build"
 app_dir="$build_dir/Quick Calendar.app"
 contents_dir="$app_dir/Contents"
 output_dir="${OUTPUT_DIR:-$script_dir/dist}"
-sdk_path="/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk"
 module_cache="$script_dir/.module-cache"
+sdk_path="${SDK_PATH:-$(xcrun --show-sdk-path --sdk macosx 2>/dev/null || true)}"
+
+if [[ -z "$sdk_path" || ! -d "$sdk_path" ]]; then
+  print -u2 "error: could not locate the macOS SDK."
+  print -u2 "Install the Xcode Command Line Tools with 'xcode-select --install',"
+  print -u2 "or set SDK_PATH to an SDK directory."
+  exit 1
+fi
 
 rm -rf "$build_dir"
 mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources" "$build_dir/AppIcon.iconset" "$module_cache" "$output_dir"

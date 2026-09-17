@@ -37,6 +37,12 @@ You can override the output directory:
 OUTPUT_DIR=/path/to/output ./build.sh
 ```
 
+The script locates the macOS SDK with `xcrun --show-sdk-path --sdk macosx`. Override it if you need to build against a specific SDK:
+
+```sh
+SDK_PATH=/path/to/MacOSX.sdk ./build.sh
+```
+
 The script performs these steps:
 
 1. Compiles `Sources/main.swift` as a native AppKit executable.
@@ -76,9 +82,14 @@ QuickCalendar/
 │   └── ICNSMaker.swift  Packages icon PNGs into the macOS ICNS format
 ├── Info.plist           macOS application bundle metadata
 ├── build.sh             Complete reproducible build and packaging script
+├── LICENSE              MIT license
 └── README.md
 ```
 
 ## Signing and distribution
 
 `build.sh` uses an ad-hoc signature so the app can run locally without a developer certificate. It is not notarized by Apple. For public distribution without a Gatekeeper warning, replace the ad-hoc signing step with a Developer ID Application signature and notarize the resulting package through Apple.
+
+## License
+
+Released under the [MIT License](LICENSE).
