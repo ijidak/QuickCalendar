@@ -1,0 +1,7 @@
+# Build output
+build/
+dist/
+.module-cache/
+
+# macOS
+.DS_Store
