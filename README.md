@@ -1,5 +1,7 @@
 # Quick Calendar
 
+[![Build](https://github.com/ijidak/QuickCalendar/actions/workflows/build.yml/badge.svg)](https://github.com/ijidak/QuickCalendar/actions/workflows/build.yml)
+
 Quick Calendar is a small native macOS month-view calendar written in Swift and AppKit. It opens on the current month, highlights today, supports previous/next-month navigation, lets you select a year within two years of the current year, and quits after 30 seconds without mouse or keyboard activity.
 
 ## Screenshots
@@ -7,6 +9,20 @@ Quick Calendar is a small native macOS month-view calendar written in Swift and 
 | Month view | Year picker |
 | --- | --- |
 | ![Quick Calendar showing September 2026 in dark mode, with today's date highlighted in a blue circle and arrow buttons on either side of the month heading](screenshots/month-view.png) | ![The same window with the year menu open, listing 2024 through 2028, a checkmark beside the current year and the next year highlighted](screenshots/year-picker.png) |
+
+## Download
+
+Prebuilt Apple Silicon builds are attached to each [release](https://github.com/ijidak/QuickCalendar/releases). Download the `.dmg`, open it, and drag **Quick Calendar** to your Applications folder.
+
+**On first launch, right-click the app and choose Open**, then confirm. A double-click will fail.
+
+Releases are ad-hoc signed and are not notarized by Apple, so Gatekeeper blocks them until you approve the app once; the right-click is that approval. If macOS still refuses to open it:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Quick Calendar.app"
+```
+
+To build from source instead, see [Build](#build) below.
 
 ## System requirements
 
@@ -86,6 +102,7 @@ QuickCalendar/
 │   ├── main.swift       App UI, calendar logic, and inactivity timer
 │   ├── IconMaker.swift  Generates the source calendar icon PNG
 │   └── ICNSMaker.swift  Packages icon PNGs into the macOS ICNS format
+├── .github/workflows/   CI build and tagged-release automation
 ├── Info.plist           macOS application bundle metadata
 ├── screenshots/         README screenshots
 ├── build.sh             Complete reproducible build and packaging script
@@ -95,7 +112,22 @@ QuickCalendar/
 
 ## Signing and distribution
 
-`build.sh` uses an ad-hoc signature so the app can run locally without a developer certificate. It is not notarized by Apple. For public distribution without a Gatekeeper warning, replace the ad-hoc signing step with a Developer ID Application signature and notarize the resulting package through Apple.
+`build.sh` uses an ad-hoc signature so the app can run locally without a developer certificate. It is not notarized by Apple, and CI releases inherit the same ad-hoc signature, which is why downloaded builds need the one-time approval described under [Download](#download).
+
+To distribute without any Gatekeeper warning, join the Apple Developer Program, replace the ad-hoc signing step with a Developer ID Application signature, and notarize the package through Apple.
+
+## Releasing
+
+Pushes to `main` build the app, run the self-tests, verify the signature, and upload the package as a workflow artifact. No release is published.
+
+To publish a release, push a `v*` tag:
+
+```sh
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+That builds from the tag, stamps `CFBundleShortVersionString` with the tag version, and creates a GitHub Release with `QuickCalendar-1.1.0.dmg` attached.
 
 ## License
 

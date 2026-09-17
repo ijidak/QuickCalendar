@@ -1,0 +1,142 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel an in-flight run when the same ref is pushed again, but never
+# cancel a tag build that may already be publishing a release.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, test, and package
+    # Pinned rather than macos-latest: build.sh targets arm64-apple-macosx13.0,
+    # so the runner must be Apple Silicon. macos-14 and newer are arm64.
+    runs-on: macos-15
+    permissions:
+      # Needed only by the release step, which runs on tags.
+      contents: write
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Confirm the runner is Apple Silicon
+        run: |
+          arch="$(uname -m)"
+          echo "Runner architecture: $arch"
+          if [ "$arch" != "arm64" ]; then
+            echo "::error::build.sh targets arm64; this runner is $arch."
+            exit 1
+          fi
+
+      - name: Report the toolchain
+        run: |
+          swift --version
+          echo "SDK path:    $(xcrun --show-sdk-path --sdk macosx)"
+          echo "SDK version: $(xcrun --show-sdk-version --sdk macosx)"
+
+      - name: Derive the version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            # Untagged builds get a throwaway version so the artifact is identifiable.
+            version="0.0.0+${GITHUB_RUN_NUMBER}.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+      - name: Stamp the bundle version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" Info.plist
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" Info.plist
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Run the self-tests
+        run: |
+          "build/Quick Calendar.app/Contents/MacOS/QuickCalendar" --self-test
+
+      - name: Verify the code signature
+        run: |
+          codesign --verify --deep --strict --verbose=2 "build/Quick Calendar.app"
+
+      - name: Name the package
+        id: package
+        run: |
+          # build.sh emits a .dmg, or falls back to a .zip if the disk-image
+          # service refuses both formats. Use find rather than a glob: an
+          # unmatched glob is an error in some shells and a literal in others.
+          built="$(find dist -maxdepth 1 -type f -name '*.dmg' | head -1)"
+          if [ -z "$built" ]; then
+            built="$(find dist -maxdepth 1 -type f -name '*.zip' | head -1)"
+          fi
+          if [ -z "$built" ]; then
+            echo "::error::build.sh produced no package in dist/."
+            ls -la dist || true
+            exit 1
+          fi
+          # Avoid spaces: GitHub rewrites them to dots in release asset URLs.
+          asset="dist/QuickCalendar-${{ steps.version.outputs.version }}.${built##*.}"
+          mv "$built" "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$asset")" >> "$GITHUB_OUTPUT"
+          ls -la dist
+
+      - name: Upload the build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: ${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+
+      - name: Write the release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## Install
+
+          1. Download the `.dmg` below and open it.
+          2. Drag **Quick Calendar** to your Applications folder.
+          3. **First launch only:** right-click the app and choose **Open**, then
+             confirm. Opening it with a double-click will fail.
+
+          This build is ad-hoc signed and is not notarized by Apple, so Gatekeeper
+          blocks it until you approve it once. The right-click step is the approval.
+          If macOS still refuses to open it, clear the download flag:
+
+          ```sh
+          xattr -dr com.apple.quarantine "/Applications/Quick Calendar.app"
+          ```
+
+          ## Requirements
+
+          - Apple Silicon Mac
+          - macOS 13 Ventura or later
+          NOTES
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Quick Calendar ${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md \
+            "${{ steps.package.outputs.asset }}"
